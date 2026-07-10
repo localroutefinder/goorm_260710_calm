@@ -8,7 +8,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="bg-layer" class="bg-layer" aria-hidden="true">
+    <div id="bg-current" class="bg-slide is-active"></div>
+    <div id="bg-next" class="bg-slide"></div>
+  </div>
+  <div class="bg-scrim" aria-hidden="true"></div>
+
   <main class="app">
+
+    <header id="game-hud" class="game-hud hidden" aria-label="퀘스트 진행 상태">
+      <span id="hud-level" class="hud-level">Lv.1</span>
+      <div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="경험치">
+        <div id="hud-xp-fill" class="xp-bar-fill"></div>
+      </div>
+      <span id="hud-stars" class="hud-stars">⭐ 0</span>
+    </header>
 
     <!-- 홈 화면 -->
     <section id="home-screen" class="screen active">
@@ -16,10 +30,13 @@
         <h1 class="app-title">Mycalm</h1>
         <p class="subtitle">잠들기 전 5분,<br>오늘 하루를 조용히 닫아요.</p>
       </header>
-      <p class="greeting">오늘도 잠들기 어려웠다면,<br>5분만 같이 정리해볼게요.</p>
+      <div class="card home-progress-card">
+        <p id="home-progress-summary" class="home-progress-summary"></p>
+      </div>
+      <p class="greeting">오늘도 잠들기 어려웠다면,<br>5분 퀘스트로 같이 정리해볼게요.</p>
       <div class="button-group">
-        <button id="btn-start" class="btn btn-primary">오늘 밤 루틴 시작하기</button>
-        <button id="btn-records" class="btn btn-secondary">내 수면 준비 기록 보기</button>
+        <button id="btn-start" class="btn btn-primary">오늘의 밤 퀘스트 시작</button>
+        <button id="btn-records" class="btn btn-secondary">퀘스트 기록 보기</button>
         <button id="btn-guide" class="btn btn-link">보호자/교사용 안내</button>
       </div>
     </section>
@@ -27,14 +44,29 @@
     <!-- 상태 선택 화면 -->
     <section id="state-screen" class="screen">
       <header class="screen-header">
-        <h2>오늘 밤, 뭐가 제일 방해돼?</h2>
+        <h2>오늘 밤, 어떤 미션을 할까?</h2>
       </header>
       <div class="state-list">
-        <button class="btn btn-state" data-state="too_many_thoughts">생각이 많아요</button>
-        <button class="btn btn-state" data-state="exam_stress">시험이 걱정돼요</button>
-        <button class="btn btn-state" data-state="phone_overuse">폰을 못 내려놔요</button>
-        <button class="btn btn-state" data-state="body_tension">몸이 긴장돼요</button>
-        <button class="btn btn-state" data-state="just_awake">그냥 잠이 안 와요</button>
+        <button class="btn btn-state" data-state="too_many_thoughts">
+          <span class="mission-icon">💭</span>
+          <span class="mission-label">생각이 많아요</span>
+        </button>
+        <button class="btn btn-state" data-state="exam_stress">
+          <span class="mission-icon">📚</span>
+          <span class="mission-label">시험이 걱정돼요</span>
+        </button>
+        <button class="btn btn-state" data-state="phone_overuse">
+          <span class="mission-icon">📱</span>
+          <span class="mission-label">폰을 못 내려놔요</span>
+        </button>
+        <button class="btn btn-state" data-state="body_tension">
+          <span class="mission-icon">😣</span>
+          <span class="mission-label">몸이 긴장돼요</span>
+        </button>
+        <button class="btn btn-state" data-state="just_awake">
+          <span class="mission-icon">🌙</span>
+          <span class="mission-label">그냥 잠이 안 와요</span>
+        </button>
       </div>
       <button id="btn-state-back" class="btn btn-link">뒤로가기</button>
     </section>
@@ -42,16 +74,18 @@
     <!-- 루틴 추천 화면 -->
     <section id="recommend-screen" class="screen">
       <header class="screen-header">
+        <p class="quest-badge">밤 퀘스트</p>
         <h2 id="recommend-title"></h2>
       </header>
       <div class="card">
         <p id="recommend-description" class="card-text"></p>
-        <p class="card-meta">총 소요 시간: 5분</p>
+        <p class="card-meta">총 소요 시간: 5분 · 스테이지 3개</p>
+        <div id="quest-map" class="quest-map" aria-label="퀘스트 스테이지 맵"></div>
         <ul id="recommend-steps" class="step-summary"></ul>
       </div>
       <div class="button-group">
-        <button id="btn-routine-start" class="btn btn-primary">5분 루틴 시작</button>
-        <button id="btn-recommend-back" class="btn btn-link">상태 다시 선택</button>
+        <button id="btn-routine-start" class="btn btn-primary">퀘스트 시작</button>
+        <button id="btn-recommend-back" class="btn btn-link">미션 다시 선택</button>
       </div>
     </section>
 
@@ -61,9 +95,11 @@
         <p id="routine-step-label" class="step-label"></p>
         <h2 id="routine-step-title"></h2>
       </header>
+      <div id="routine-quest-map" class="quest-map quest-map--compact" aria-label="현재 스테이지"></div>
       <div class="card routine-card">
         <p id="routine-step-text" class="routine-text"></p>
         <p id="routine-timer" class="timer-display" aria-live="polite">0:00</p>
+        <p class="progress-label">퀘스트 진행률</p>
         <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div id="routine-progress" class="progress-fill"></div>
         </div>
@@ -76,29 +112,43 @@
 
     <!-- 완료 화면 -->
     <section id="complete-screen" class="screen">
-      <header class="screen-header">
-        <h2>오늘 잠 준비 완료.</h2>
+      <header class="screen-header complete-header">
+        <div class="complete-badge" aria-hidden="true">✨</div>
+        <h2>밤 퀘스트 클리어!</h2>
         <p class="subtitle">이제 화면은 닫아도 괜찮아.<br>내일의 너에게 나머지를 맡겨두자.</p>
       </header>
       <div class="card">
+        <p id="complete-bonus" class="complete-bonus"></p>
         <p id="complete-count" class="complete-count"></p>
       </div>
       <div class="button-group">
         <button id="btn-complete-home" class="btn btn-primary">처음으로</button>
-        <button id="btn-complete-records" class="btn btn-secondary">기록 보기</button>
+        <button id="btn-complete-records" class="btn btn-secondary">퀘스트 기록 보기</button>
       </div>
     </section>
 
     <!-- 기록 화면 -->
     <section id="records-screen" class="screen">
       <header class="screen-header">
-        <h2>내 수면 준비 기록</h2>
+        <h2>퀘스트 기록</h2>
       </header>
       <div class="card">
         <p id="records-weekly" class="records-summary"></p>
         <dl class="records-stats">
           <div class="stat-row">
-            <dt>전체 완료 횟수</dt>
+            <dt>현재 레벨</dt>
+            <dd id="records-level">Lv.1</dd>
+          </div>
+          <div class="stat-row">
+            <dt>누적 별</dt>
+            <dd id="records-stars">0</dd>
+          </div>
+          <div class="stat-row">
+            <dt>다음 레벨까지</dt>
+            <dd id="records-xp-remaining">50 XP</dd>
+          </div>
+          <div class="stat-row">
+            <dt>클리어한 퀘스트</dt>
             <dd id="records-total">0</dd>
           </div>
           <div class="stat-row">
@@ -106,11 +156,12 @@
             <dd id="records-last-date">-</dd>
           </div>
           <div class="stat-row">
-            <dt>최근 루틴</dt>
+            <dt>최근 퀘스트</dt>
             <dd id="records-last-routine">-</dd>
           </div>
         </dl>
       </div>
+      <h3 class="records-list-title">퀘스트 클리어 기록</h3>
       <ul id="records-list" class="records-list"></ul>
       <div class="button-group">
         <button id="btn-records-home" class="btn btn-primary">처음으로</button>
@@ -147,6 +198,17 @@
       </div>
       <button id="btn-guide-home" class="btn btn-primary">처음으로</button>
     </section>
+
+    <!-- 보상 오버레이 -->
+    <div id="reward-overlay" class="reward-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reward-title">
+      <div class="reward-card">
+        <div class="reward-stars" aria-hidden="true">⭐</div>
+        <h3 id="reward-title">미션 클리어!</h3>
+        <p id="reward-message"></p>
+        <p id="reward-gains" class="reward-gains" aria-live="polite"></p>
+        <button id="btn-reward-continue" class="btn btn-primary">다음 미션</button>
+      </div>
+    </div>
 
   </main>
 

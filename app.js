@@ -2,9 +2,52 @@ const STORAGE_KEYS = {
   records: "mycalm_records",
   lastState: "mycalm_last_state",
   events: "mycalm_events",
+  progress: "mycalm_progress",
 };
 
 const TOTAL_ROUTINE_SECONDS = 300;
+
+const REWARDS = {
+  stepXp: 10,
+  stepStars: 1,
+  questBonusXp: 20,
+  questBonusStars: 2,
+};
+
+const XP_PER_LEVEL = 50;
+
+const HUD_SCREENS = [
+  "state-screen",
+  "recommend-screen",
+  "routine-screen",
+  "complete-screen",
+];
+
+const TIME_BACKGROUNDS = [
+  { startHour: 23, image: "assets/images/bg-night.png", label: "밤" },
+  { startHour: 5, image: "assets/images/bg-morning.png", label: "아침" },
+  { startHour: 9, image: "assets/images/bg-day.png", label: "낮" },
+  { startHour: 13, image: "assets/images/bg-afternoon.png", label: "오후" },
+  { startHour: 17, image: "assets/images/bg-sunset.png", label: "저녁" },
+  { startHour: 20, image: "assets/images/bg-dusk.png", label: "해질녘" },
+];
+
+let currentBackgroundImage = null;
+
+const STEP_REWARD_MESSAGES = [
+  {
+    title: "1단계 클리어!",
+    message: "숨을 고르며 첫 미션을 끝냈어요.",
+  },
+  {
+    title: "2단계 클리어!",
+    message: "몸의 긴장을 조금 풀었어요.",
+  },
+  {
+    title: "3단계 클리어!",
+    message: "마지막 미션까지 해냈어요.",
+  },
+];
 
 const routines = {
   too_many_thoughts: {
@@ -132,6 +175,151 @@ let timerId = null;
 let remainingSeconds = 0;
 let currentStepDuration = 0;
 let elapsedBeforeCurrentStep = 0;
+let rewardReady = false;
+let afterRewardAction = null;
+
+function getBackgroundForHour(hour) {
+  const sorted = [...TIME_BACKGROUNDS].sort(
+    (a, b) => b.startHour - a.startHour
+  );
+  for (const bg of sorted) {
+    if (hour >= bg.startHour) {
+      return bg;
+    }
+  }
+  return TIME_BACKGROUNDS.find((bg) => bg.startHour === 23);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function setBackground(imagePath) {
+  if (currentBackgroundImage === imagePath) return;
+
+  const currentEl = document.getElementById("bg-current");
+  const nextEl = document.getElementById("bg-next");
+  if (!currentEl || !nextEl) return;
+
+  const applyBackground = () => {
+    const activeEl = currentEl.classList.contains("is-active")
+      ? currentEl
+      : nextEl;
+    const inactiveEl = activeEl === currentEl ? nextEl : currentEl;
+
+    inactiveEl.style.backgroundImage = `url("${imagePath}")`;
+    inactiveEl.classList.add("is-active");
+    activeEl.classList.remove("is-active");
+    currentBackgroundImage = imagePath;
+  };
+
+  if (prefersReducedMotion()) {
+    currentEl.style.backgroundImage = `url("${imagePath}")`;
+    nextEl.style.backgroundImage = "";
+    currentEl.classList.add("is-active");
+    nextEl.classList.remove("is-active");
+    currentBackgroundImage = imagePath;
+    return;
+  }
+
+  const img = new Image();
+  img.onload = applyBackground;
+  img.onerror = applyBackground;
+  img.src = imagePath;
+}
+
+function updateBackground() {
+  const hour = new Date().getHours();
+  const bg = getBackgroundForHour(hour);
+  if (bg) {
+    setBackground(bg.image);
+  }
+}
+
+function initBackground() {
+  updateBackground();
+  setInterval(updateBackground, 60000);
+}
+
+function getLevelFromXp(xp) {
+  return Math.floor(xp / XP_PER_LEVEL) + 1;
+}
+
+function getXpInCurrentLevel(xp) {
+  return xp % XP_PER_LEVEL;
+}
+
+function getXpToNextLevel(xp) {
+  return XP_PER_LEVEL - getXpInCurrentLevel(xp);
+}
+
+function getProgress() {
+  const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.progress) || "null");
+  if (!stored) {
+    return { totalXp: 0, totalStars: 0, level: 1 };
+  }
+  return {
+    totalXp: stored.totalXp || 0,
+    totalStars: stored.totalStars || 0,
+    level: getLevelFromXp(stored.totalXp || 0),
+  };
+}
+
+function saveProgress(progress) {
+  localStorage.setItem(
+    STORAGE_KEYS.progress,
+    JSON.stringify({
+      totalXp: progress.totalXp,
+      totalStars: progress.totalStars,
+      level: getLevelFromXp(progress.totalXp),
+    })
+  );
+}
+
+function addReward(xp, stars) {
+  const progress = getProgress();
+  progress.totalXp += xp;
+  progress.totalStars += stars;
+  progress.level = getLevelFromXp(progress.totalXp);
+  saveProgress(progress);
+  renderHud();
+  renderHomeProgress();
+  return progress;
+}
+
+function renderHud() {
+  const progress = getProgress();
+  const levelEl = document.getElementById("hud-level");
+  const starsEl = document.getElementById("hud-stars");
+  const xpFill = document.getElementById("hud-xp-fill");
+  const xpBar = xpFill?.parentElement;
+
+  if (levelEl) levelEl.textContent = `Lv.${progress.level}`;
+  if (starsEl) starsEl.textContent = `⭐ ${progress.totalStars}`;
+
+  const xpPercent = (getXpInCurrentLevel(progress.totalXp) / XP_PER_LEVEL) * 100;
+  if (xpFill) xpFill.style.width = `${xpPercent}%`;
+  if (xpBar) xpBar.setAttribute("aria-valuenow", Math.round(xpPercent));
+}
+
+function renderHomeProgress() {
+  const progress = getProgress();
+  const el = document.getElementById("home-progress-summary");
+  if (!el) return;
+
+  if (progress.totalXp === 0 && progress.totalStars === 0) {
+    el.textContent = "첫 밤 퀘스트를 시작하면 별과 XP를 모을 수 있어요.";
+    return;
+  }
+
+  el.textContent = `Lv.${progress.level} · ⭐ ${progress.totalStars}개 · 다음 레벨까지 ${getXpToNextLevel(progress.totalXp)} XP`;
+}
+
+function updateHudVisibility(screenId) {
+  const hud = document.getElementById("game-hud");
+  if (!hud) return;
+  hud.classList.toggle("hidden", !HUD_SCREENS.includes(screenId));
+}
 
 function showScreen(screenId) {
   document.querySelectorAll(".screen").forEach((screen) => {
@@ -141,6 +329,62 @@ function showScreen(screenId) {
   if (target) {
     target.classList.add("active");
   }
+  updateHudVisibility(screenId);
+  if (HUD_SCREENS.includes(screenId)) {
+    renderHud();
+  }
+}
+
+function showRewardOverlay({ title, message, xp, stars, isFinal = false }) {
+  document.getElementById("reward-title").textContent = title;
+  document.getElementById("reward-message").textContent = message;
+  document.getElementById("reward-gains").textContent =
+    `+${xp} XP · +${stars} ⭐`;
+
+  const continueBtn = document.getElementById("btn-reward-continue");
+  continueBtn.textContent = isFinal ? "퀘스트 완료" : "다음 미션";
+
+  const overlay = document.getElementById("reward-overlay");
+  overlay.classList.remove("hidden");
+}
+
+function hideRewardOverlay() {
+  document.getElementById("reward-overlay").classList.add("hidden");
+}
+
+function getStepRewardMessage(stepIndex) {
+  return STEP_REWARD_MESSAGES[stepIndex] || STEP_REWARD_MESSAGES[0];
+}
+
+function renderQuestMap(containerId, activeIndex = 0, clearedCount = 0) {
+  const container = document.getElementById(containerId);
+  if (!container || !selectedRoutine) return;
+
+  container.innerHTML = "";
+  selectedRoutine.steps.forEach((step, index) => {
+    const node = document.createElement("div");
+    node.className = "quest-node";
+
+    if (index < clearedCount) {
+      node.classList.add("node--cleared");
+    } else if (index === activeIndex) {
+      node.classList.add("node--active");
+    } else {
+      node.classList.add("node--locked");
+    }
+
+    node.innerHTML =
+      `<span class="node-num">${index + 1}</span>` +
+      `<span class="node-label">${step.title}</span>`;
+    container.appendChild(node);
+
+    if (index < selectedRoutine.steps.length - 1) {
+      const line = document.createElement("div");
+      line.className = "quest-line";
+      if (index < clearedCount) line.classList.add("quest-line--cleared");
+      container.appendChild(line);
+    }
+  });
 }
 
 function trackEvent(type, payload = {}) {
@@ -210,6 +454,13 @@ function clearTimer() {
   }
 }
 
+function resetNextStepButton() {
+  const btn = document.getElementById("btn-next-step");
+  btn.textContent = "다음 단계";
+  btn.disabled = true;
+  rewardReady = false;
+}
+
 function updateProgressBar() {
   const step = selectedRoutine.steps[currentStepIndex];
   const stepElapsed = step.duration - remainingSeconds;
@@ -229,17 +480,19 @@ function updateProgressBar() {
 function renderCurrentStep() {
   const step = selectedRoutine.steps[currentStepIndex];
   document.getElementById("routine-step-label").textContent =
-    `${currentStepIndex + 1}단계`;
+    `Stage ${currentStepIndex + 1}/3`;
   document.getElementById("routine-step-title").textContent = step.title;
   document.getElementById("routine-step-text").textContent = step.text;
   document.getElementById("routine-timer").textContent =
     formatTime(remainingSeconds);
-  document.getElementById("btn-next-step").disabled = true;
+  resetNextStepButton();
+  renderQuestMap("routine-quest-map", currentStepIndex, currentStepIndex);
   updateProgressBar();
 }
 
 function startTimer(seconds) {
   clearTimer();
+  hideRewardOverlay();
   remainingSeconds = seconds;
   currentStepDuration = seconds;
   renderCurrentStep();
@@ -254,7 +507,10 @@ function startTimer(seconds) {
       clearTimer();
       remainingSeconds = 0;
       document.getElementById("routine-timer").textContent = "0:00";
-      document.getElementById("btn-next-step").disabled = false;
+      const btn = document.getElementById("btn-next-step");
+      btn.disabled = false;
+      btn.textContent = "보상 받기";
+      rewardReady = true;
       trackEvent("step_complete", {
         routineId: selectedRoutine.id,
         stepIndex: currentStepIndex,
@@ -271,12 +527,15 @@ function renderRecommendScreen() {
   document.getElementById("recommend-description").textContent =
     selectedRoutine.description;
 
+  renderQuestMap("quest-map", 0, 0);
+
   const stepsList = document.getElementById("recommend-steps");
   stepsList.innerHTML = "";
   selectedRoutine.steps.forEach((step, index) => {
     const li = document.createElement("li");
-    const mins = step.duration >= 60 ? `${step.duration / 60}분` : `${step.duration}초`;
-    li.textContent = `${index + 1}. ${step.title} (${mins})`;
+    const mins =
+      step.duration >= 60 ? `${step.duration / 60}분` : `${step.duration}초`;
+    li.textContent = `Stage ${index + 1}. ${step.title} (${mins})`;
     stepsList.appendChild(li);
   });
 }
@@ -299,6 +558,8 @@ function startRoutine(routineId) {
   selectedRoutine = routines[routineId];
   currentStepIndex = 0;
   elapsedBeforeCurrentStep = 0;
+  rewardReady = false;
+  afterRewardAction = null;
 
   trackEvent("routine_start_click", { routineId });
   showScreen("routine-screen");
@@ -307,44 +568,87 @@ function startRoutine(routineId) {
   startTimer(firstStep.duration);
 }
 
-function goToNextStep() {
-  elapsedBeforeCurrentStep += currentStepDuration;
-  currentStepIndex++;
+function claimStepReward() {
+  if (!rewardReady || !selectedRoutine) return;
 
-  if (currentStepIndex >= selectedRoutine.steps.length) {
+  const reward = getStepRewardMessage(currentStepIndex);
+  addReward(REWARDS.stepXp, REWARDS.stepStars);
+
+  const isLastStep =
+    currentStepIndex >= selectedRoutine.steps.length - 1;
+
+  rewardReady = false;
+  document.getElementById("btn-next-step").disabled = true;
+  document.getElementById("btn-next-step").textContent = "다음 단계";
+
+  afterRewardAction = isLastStep ? "complete" : "next_step";
+
+  showRewardOverlay({
+    title: reward.title,
+    message: reward.message,
+    xp: REWARDS.stepXp,
+    stars: REWARDS.stepStars,
+    isFinal: isLastStep,
+  });
+}
+
+function continueAfterReward() {
+  hideRewardOverlay();
+
+  if (afterRewardAction === "complete") {
+    addReward(REWARDS.questBonusXp, REWARDS.questBonusStars);
     saveCompletionRecord(selectedRoutine.id);
     trackEvent("routine_complete", { routineId: selectedRoutine.id });
 
     const records = getCompletionRecords().filter((r) => r.completed);
-    document.getElementById("complete-count").textContent =
-      `지금까지 ${records.length}번, 잠들기 전 멈추는 연습을 했어요.`;
+    const progress = getProgress();
 
+    document.getElementById("complete-bonus").textContent =
+      `보너스 +${REWARDS.questBonusXp} XP · +${REWARDS.questBonusStars} ⭐ 획득!`;
+    document.getElementById("complete-count").textContent =
+      `총 ${records.length}번 클리어 · Lv.${progress.level} · ⭐ ${progress.totalStars}개`;
+
+    afterRewardAction = null;
     showScreen("complete-screen");
     return;
   }
 
-  const nextStep = selectedRoutine.steps[currentStepIndex];
-  startTimer(nextStep.duration);
+  if (afterRewardAction === "next_step") {
+    elapsedBeforeCurrentStep += currentStepDuration;
+    currentStepIndex++;
+    afterRewardAction = null;
+
+    const nextStep = selectedRoutine.steps[currentStepIndex];
+    startTimer(nextStep.duration);
+  }
 }
 
 function stopRoutine() {
   clearTimer();
+  hideRewardOverlay();
   selectedRoutine = null;
   currentStepIndex = 0;
   remainingSeconds = 0;
   elapsedBeforeCurrentStep = 0;
+  rewardReady = false;
+  afterRewardAction = null;
   showScreen("home-screen");
 }
 
 function renderRecordsScreen() {
   const records = getCompletionRecords().filter((r) => r.completed);
   const weeklyCount = getWeeklyCompletionCount();
+  const progress = getProgress();
 
   document.getElementById("records-weekly").textContent =
     weeklyCount > 0
-      ? `이번 주에는 ${weeklyCount}번,\n잠들기 전 멈추는 연습을 했어요.`
-      : "아직 이번 주 기록이 없어요.";
+      ? `이번 주에는 ${weeklyCount}번,\n밤 퀘스트를 클리어했어요.`
+      : "아직 이번 주 클리어 기록이 없어요.";
 
+  document.getElementById("records-level").textContent = `Lv.${progress.level}`;
+  document.getElementById("records-stars").textContent = String(progress.totalStars);
+  document.getElementById("records-xp-remaining").textContent =
+    `${getXpToNextLevel(progress.totalXp)} XP`;
   document.getElementById("records-total").textContent = String(records.length);
 
   if (records.length > 0) {
@@ -365,7 +669,7 @@ function renderRecordsScreen() {
   if (records.length === 0) {
     const empty = document.createElement("li");
     empty.className = "records-empty";
-    empty.textContent = "아직 완료한 루틴이 없어요.";
+    empty.textContent = "아직 클리어한 퀘스트가 없어요.";
     listEl.appendChild(empty);
   } else {
     [...records].reverse().slice(0, 10).forEach((record) => {
@@ -390,11 +694,16 @@ function clearAllRecords() {
   localStorage.removeItem(STORAGE_KEYS.records);
   localStorage.removeItem(STORAGE_KEYS.lastState);
   localStorage.removeItem(STORAGE_KEYS.events);
+  localStorage.removeItem(STORAGE_KEYS.progress);
   renderRecordsScreen();
+  renderHomeProgress();
 }
 
 function initApp() {
   trackEvent("app_open");
+  initBackground();
+  renderHud();
+  renderHomeProgress();
 
   document.getElementById("btn-start").addEventListener("click", () => {
     showScreen("state-screen");
@@ -432,7 +741,13 @@ function initApp() {
   });
 
   document.getElementById("btn-next-step").addEventListener("click", () => {
-    goToNextStep();
+    if (rewardReady) {
+      claimStepReward();
+    }
+  });
+
+  document.getElementById("btn-reward-continue").addEventListener("click", () => {
+    continueAfterReward();
   });
 
   document.getElementById("btn-stop-routine").addEventListener("click", () => {
@@ -440,6 +755,7 @@ function initApp() {
   });
 
   document.getElementById("btn-complete-home").addEventListener("click", () => {
+    renderHomeProgress();
     showScreen("home-screen");
   });
 
@@ -450,6 +766,7 @@ function initApp() {
   });
 
   document.getElementById("btn-records-home").addEventListener("click", () => {
+    renderHomeProgress();
     showScreen("home-screen");
   });
 
