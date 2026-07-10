@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="잠들기 전 5분, 오늘 하루를 조용히 닫아요.">
+  <title>Mycalm</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+
+    <!-- 홈 화면 -->
+    <section id="home-screen" class="screen active">
+      <header class="screen-header">
+        <h1 class="app-title">Mycalm</h1>
+        <p class="subtitle">잠들기 전 5분,<br>오늘 하루를 조용히 닫아요.</p>
+      </header>
+      <p class="greeting">오늘도 잠들기 어려웠다면,<br>5분만 같이 정리해볼게요.</p>
+      <div class="button-group">
+        <button id="btn-start" class="btn btn-primary">오늘 밤 루틴 시작하기</button>
+        <button id="btn-records" class="btn btn-secondary">내 수면 준비 기록 보기</button>
+        <button id="btn-guide" class="btn btn-link">보호자/교사용 안내</button>
+      </div>
+    </section>
+
+    <!-- 상태 선택 화면 -->
+    <section id="state-screen" class="screen">
+      <header class="screen-header">
+        <h2>오늘 밤, 뭐가 제일 방해돼?</h2>
+      </header>
+      <div class="state-list">
+        <button class="btn btn-state" data-state="too_many_thoughts">생각이 많아요</button>
+        <button class="btn btn-state" data-state="exam_stress">시험이 걱정돼요</button>
+        <button class="btn btn-state" data-state="phone_overuse">폰을 못 내려놔요</button>
+        <button class="btn btn-state" data-state="body_tension">몸이 긴장돼요</button>
+        <button class="btn btn-state" data-state="just_awake">그냥 잠이 안 와요</button>
+      </div>
+      <button id="btn-state-back" class="btn btn-link">뒤로가기</button>
+    </section>
+
+    <!-- 루틴 추천 화면 -->
+    <section id="recommend-screen" class="screen">
+      <header class="screen-header">
+        <h2 id="recommend-title"></h2>
+      </header>
+      <div class="card">
+        <p id="recommend-description" class="card-text"></p>
+        <p class="card-meta">총 소요 시간: 5분</p>
+        <ul id="recommend-steps" class="step-summary"></ul>
+      </div>
+      <div class="button-group">
+        <button id="btn-routine-start" class="btn btn-primary">5분 루틴 시작</button>
+        <button id="btn-recommend-back" class="btn btn-link">상태 다시 선택</button>
+      </div>
+    </section>
+
+    <!-- 루틴 진행 화면 -->
+    <section id="routine-screen" class="screen">
+      <header class="screen-header">
+        <p id="routine-step-label" class="step-label"></p>
+        <h2 id="routine-step-title"></h2>
+      </header>
+      <div class="card routine-card">
+        <p id="routine-step-text" class="routine-text"></p>
+        <p id="routine-timer" class="timer-display" aria-live="polite">0:00</p>
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div id="routine-progress" class="progress-fill"></div>
+        </div>
+      </div>
+      <div class="button-group">
+        <button id="btn-next-step" class="btn btn-primary" disabled>다음 단계</button>
+        <button id="btn-stop-routine" class="btn btn-link">그만하기</button>
+      </div>
+    </section>
+
+    <!-- 완료 화면 -->
+    <section id="complete-screen" class="screen">
+      <header class="screen-header">
+        <h2>오늘 잠 준비 완료.</h2>
+        <p class="subtitle">이제 화면은 닫아도 괜찮아.<br>내일의 너에게 나머지를 맡겨두자.</p>
+      </header>
+      <div class="card">
+        <p id="complete-count" class="complete-count"></p>
+      </div>
+      <div class="button-group">
+        <button id="btn-complete-home" class="btn btn-primary">처음으로</button>
+        <button id="btn-complete-records" class="btn btn-secondary">기록 보기</button>
+      </div>
+    </section>
+
+    <!-- 기록 화면 -->
+    <section id="records-screen" class="screen">
+      <header class="screen-header">
+        <h2>내 수면 준비 기록</h2>
+      </header>
+      <div class="card">
+        <p id="records-weekly" class="records-summary"></p>
+        <dl class="records-stats">
+          <div class="stat-row">
+            <dt>전체 완료 횟수</dt>
+            <dd id="records-total">0</dd>
+          </div>
+          <div class="stat-row">
+            <dt>최근 완료일</dt>
+            <dd id="records-last-date">-</dd>
+          </div>
+          <div class="stat-row">
+            <dt>최근 루틴</dt>
+            <dd id="records-last-routine">-</dd>
+          </div>
+        </dl>
+      </div>
+      <ul id="records-list" class="records-list"></ul>
+      <div class="button-group">
+        <button id="btn-records-home" class="btn btn-primary">처음으로</button>
+        <button id="btn-clear-records" class="btn btn-danger">기록 초기화</button>
+      </div>
+    </section>
+
+    <!-- 보호자/교사용 안내 화면 -->
+    <section id="guide-screen" class="screen">
+      <header class="screen-header">
+        <h2>보호자/교사용 안내</h2>
+      </header>
+      <div class="card guide-card">
+        <p>Mycalm은 청소년의 수면 준비 루틴을 돕기 위한 웹앱입니다.<br>의료 진단이나 치료를 제공하지 않습니다.</p>
+        <p>초기 버전에서는 이름, 전화번호, 위치정보를 수집하지 않습니다.<br>사용 기록은 사용자의 브라우저 안에만 저장됩니다.</p>
+        <dl class="guide-info">
+          <div class="stat-row">
+            <dt>앱 목적</dt>
+            <dd>수면 전환 루틴</dd>
+          </div>
+          <div class="stat-row">
+            <dt>수집 정보</dt>
+            <dd>브라우저 localStorage 기록</dd>
+          </div>
+          <div class="stat-row">
+            <dt>수집하지 않는 정보</dt>
+            <dd>이름, 연락처, 위치</dd>
+          </div>
+          <div class="stat-row">
+            <dt>사용 대상</dt>
+            <dd>청소년과 보호자</dd>
+          </div>
+        </dl>
+      </div>
+      <button id="btn-guide-home" class="btn btn-primary">처음으로</button>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
